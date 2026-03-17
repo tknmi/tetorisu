@@ -1,1 +1,227 @@
-たきの
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>テトリス</title>
+<style>
+  body {
+    background: #111;
+    color: white;
+    text-align: center;
+    font-family: sans-serif;
+  }
+  canvas {
+    background: #000;
+    border: 2px solid #fff;
+  }
+  .container {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    align-items: flex-start;
+  }
+  .side {
+    text-align: left;
+  }
+</style>
+</head>
+<body>
+
+<h1>テトリス</h1>
+<p>← → 移動 / ↑ 回転 / ↓ 加速</p>
+
+<div class="container">
+  <canvas id="game" width="240" height="400"></canvas>
+
+  <div class="side">
+    <h2>スコア</h2>
+    <p id="score">0</p>
+
+    <h2>次のブロック</h2>
+    <canvas id="next" width="80" height="80"></canvas>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+const nextCanvas = document.getElementById("next");
+const nextCtx = nextCanvas.getContext("2d");
+
+const COLS = 12;
+const ROWS = 20;
+const SIZE = 20;
+
+let board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+
+const COLORS = [
+  null,
+  "cyan","blue","orange","yellow","green","purple","red"
+];
+
+const SHAPES = [
+  [],
+  [[1,1,1,1]],
+  [[2,0,0],[2,2,2]],
+  [[0,0,3],[3,3,3]],
+  [[4,4],[4,4]],
+  [[0,5,5],[5,5,0]],
+  [[0,6,0],[6,6,6]],
+  [[7,7,0],[0,7,7]]
+];
+
+let score = 0;
+let gameOver = false;
+
+function createPiece() {
+  const type = Math.floor(Math.random() * 7) + 1;
+  return {
+    shape: SHAPES[type],
+    x: 4,
+    y: 0
+  };
+}
+
+let piece = createPiece();
+let nextPiece = createPiece();
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  board.forEach((row, y) => {
+    row.forEach((value, x) => {
+      if (value) {
+        ctx.fillStyle = COLORS[value];
+        ctx.fillRect(x*SIZE, y*SIZE, SIZE, SIZE);
+      }
+    });
+  });
+
+  piece.shape.forEach((row, y) => {
+    row.forEach((value, x) => {
+      if (value) {
+        ctx.fillStyle = COLORS[value];
+        ctx.fillRect((piece.x+x)*SIZE, (piece.y+y)*SIZE, SIZE, SIZE);
+      }
+    });
+  });
+}
+
+function drawNext() {
+  nextCtx.clearRect(0, 0, 80, 80);
+  nextPiece.shape.forEach((row, y) => {
+    row.forEach((value, x) => {
+      if (value) {
+        nextCtx.fillStyle = COLORS[value];
+        nextCtx.fillRect(x*20, y*20, 20, 20);
+      }
+    });
+  });
+}
+
+function collide() {
+  return piece.shape.some((row, y) => {
+    return row.some((value, x) => {
+      if (!value) return false;
+      let px = piece.x + x;
+      let py = piece.y + y;
+      return (
+        px < 0 ||
+        px >= COLS ||
+        py >= ROWS ||
+        (py >= 0 && board[py][px])
+      );
+    });
+  });
+}
+
+function merge() {
+  piece.shape.forEach((row, y) => {
+    row.forEach((value, x) => {
+      if (value) {
+        board[piece.y + y][piece.x + x] = value;
+      }
+    });
+  });
+}
+
+function rotate(matrix) {
+  return matrix[0].map((_, i) => matrix.map(row => row[i]).reverse());
+}
+
+function clearLines() {
+  let lines = 0;
+  board = board.filter(row => {
+    if (row.every(cell => cell !== 0)) {
+      lines++;
+      return false;
+    }
+    return true;
+  });
+
+  while (board.length < ROWS) {
+    board.unshift(Array(COLS).fill(0));
+  }
+
+  if (lines > 0) {
+    score += lines * 100;
+    document.getElementById("score").innerText = score;
+  }
+}
+
+function drop() {
+  if (gameOver) return;
+
+  piece.y++;
+
+  if (collide()) {
+    piece.y--;
+    merge();
+    clearLines();
+
+    piece = nextPiece;
+    nextPiece = createPiece();
+    drawNext();
+
+    if (collide()) {
+      gameOver = true;
+      alert("ゲームオーバー！");
+    }
+  }
+}
+
+document.addEventListener("keydown", e => {
+  if (gameOver) return;
+
+  if (e.key === "ArrowLeft") {
+    piece.x--;
+    if (collide()) piece.x++;
+  }
+  if (e.key === "ArrowRight") {
+    piece.x++;
+    if (collide()) piece.x--;
+  }
+  if (e.key === "ArrowDown") {
+    drop();
+  }
+  if (e.key === "ArrowUp") {
+    let old = piece.shape;
+    piece.shape = rotate(piece.shape);
+    if (collide()) piece.shape = old;
+  }
+});
+
+function update() {
+  drop();
+  draw();
+}
+
+setInterval(update, 500);
+
+draw();
+drawNext();
+</script>
+
+</body>
+</html>
